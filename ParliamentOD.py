@@ -5,18 +5,22 @@ import re, pickle, os, urllib, time, glob
 
 DATA_DIR = '../data/'
 MP_DATA_DIR = DATA_DIR+'/mp/'
+BILLS_DATA_DIR = DATA_DIR+'/bills/'
 SERIALIZE_DIR = '../serialized/'
 
 # Да стане на хеш
 MP_DataStruc_file = SERIALIZE_DIR+'MP_FullName-ID-PoliticalForce.pkl'
 ID2MP_DataStruct_file = SERIALIZE_DIR+'ID2MP_ID-FullName.pkl'
 PG_DataStruct_file = SERIALIZE_DIR+'PG_PoliticalForce-ID.pkl'
-Bills_DataStruct_file = SERIALIZE_DIR+'Bills_Signature-PoliticalForce-BillID-BillName-BillDate.pkl'
+Bills_DataStruct_file = SERIALIZE_DIR+'Bills_Signature-PoliticalForce-BillID-BillName-BillDate-Type.pkl'
 BillID2Signature_DataStruct_file = SERIALIZE_DIR+'BillID2Signature_Signature-BillID.pkl'
 
 DataFile = {}
 DataFile['MP'] = SERIALIZE_DIR+'MP_FullName-ID-PoliticalForce.pkl'
 DataFile['ID2MP'] = SERIALIZE_DIR+'ID2MP_ID-FullName.pkl'
+DataFile['PG'] = SERIALIZE_DIR+'PG_PoliticalForce-ID.pkl'
+DataFile['Bills'] = SERIALIZE_DIR+'Bills_Signature-PoliticalForce-BillID-BillName-BillDate-Type.pkl'
+DataFile['BillID2Signature'] = SERIALIZE_DIR+'BillID2Signature_BillID-Signature.pkl'
 
 # Начало на 41 НС
 NS41_Start = ( 2009, 6, 25, 0, 0, 0, 0, 0, 0)
@@ -169,7 +173,7 @@ def getPG(*Party):
     
     return PG
 
-def getAllBills():
+def getAllBills(Serialize=True):
     'Списък на законопроектите на 41 НС'
     
     Bills = {}
@@ -179,7 +183,7 @@ def getAllBills():
     bills = xmldoc.getElementsByTagName('Bill')
 
     for bill in bills:
-        try: BillID = bill.attributes['id'].value
+        try: BillID = int(bill.attributes['id'].value)
         except: 
             print 'Problem with Bill ID - may get bad'
             BillID = 0        
@@ -207,42 +211,70 @@ def getAllBills():
         if ( BillDate - NS41_Start)  >= 0:                        
             Bills[Signature] = {}
             Bills[Signature]['BillDate'] = BillDate            
-            Bills[Signature]['BillID'] = int(BillID)
+            Bills[Signature]['BillID'] = BillID
             Bills[Signature]['BillName'] = BillName
-        
-        BillID2Signature[BillID] = Signature            
+            Bills[Signature]['Type'] = classifyBill(Signature, BillName)      
+                   
+            BillID2Signature[BillID] = Signature            
+
+    if Serialize:
+        serializeData(Bills, DataFile['Bills'])
+        serializeData(BillID2Signature, DataFile['BillID2Signature'])        
     
     return Bills, BillID2Signature         
 
-def classifyBills():
+def classifyBill(Signature, BillName):
     'Класифициране на Законопроекти, Решения, Закони за ратификация'
-    try: Bills
-    except:        
-        (Bills,BillID2Signature) = deserializeData('Bills', 'BillID2Signature' )
     
-    Bills[Signature]['Type'] = {}
-    for Signature in Bills.keys():
-        if '-' in Signature:            
-            Type =  'Законопроект'
-            if 'ратифициране' in Bills[Signature]['BillName']:
-                Type = 'Ратификация'
-                print Bills[Signature]['BillName']
-        else:
-            Type = 'Решение'
-            if 'ДЕКЛАРАЦИЯ' in Bills[Signature]['BillName']:                
-                Type = 'Декларация'        
-                print Bills[Signature]['BillName']
-        Bills[Signature]['Type'] = Type    
-    return Bills
+    Type = ''
+    if '-' in Signature:            
+        Type =  'Законопроект'
+        if 'ратифициране' in BillName:
+            Type = 'Ратификация'
+            #print BillName
+    else:
+        Type = 'Решение'
+        if 'ДЕКЛАРАЦИЯ' in BillName:                
+            Type = 'Декларация'        
+            #print BillName  
+    
+    return Type
 
 def getBill(key):
     'Информация за законопроект'
     
+    #Тези данни пак ни трябват. Може би е добре да си ги има и иначе 
+    try: Bills    
+    except:        
+        (Bills,BillID2Signature) = deserializeData('Bills', 'BillID2Signature' )
+    
     'Трябва да може да работим с (int)ID  или със (str)Сигнатура'
     if type(key) is int:
         print 'Work with id'
+        BillID = key
+        Signature = BillID2Signature[key]
+        print Bills[Signature]['BillName']
     elif  type(key) is str:
         print 'Work with sign'
+        Signature = key
+        BillID = Bills[Signature]['BillID']
+        print Bills[Signature]['BillName']
+    
+    url = 'http://parliament.yurukov.net/data/bills/bill_'+str(BillID)+'.xml'
+    getData(url, BILLS_DATA_DIR, 0)
+    
+    xmldoc = minidom.parse(BILLS_DATA_DIR+'bill_'+str(BillID)+'.xml')
+    
+    # Приет/обнародван ли е?
+    SGIss = xmldoc.getElementsByTagName('SGIss')[0].firstChild.data
+    if SGIss:
+        SGYear = xmldoc.getElementsByTagName('SGYear')[0].firstChild.data
+        print 'Приет и обнародван в ДВ бр.',SGIss,'от',SGYear
+    
+    
+    
+
+
           
     pass
    
@@ -346,7 +378,7 @@ def test_getAllMP(limit=10):
     '''Input: (int) limit - брой записи
        Returns: Структура от данни с  
     '''
-    mps = getAllMP()
+    (mps,id2mp) = getAllMP()
     print 'size:',len(mps)
    
     i = 0
@@ -393,3 +425,7 @@ def test_getPG():
         for mp in pg[party]:
             print party,'-',mp
 
+#(Bills, BillID2Signature) = getAllBills(3)
+#(Bills, BillID2Signature) = deserializeData('Bills','BillID2Signature')
+
+getBill(9996)
