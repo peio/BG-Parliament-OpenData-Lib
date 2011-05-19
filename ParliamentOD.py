@@ -27,7 +27,7 @@ NS41_Start = ( 2009, 6, 25, 0, 0, 0, 0, 0, 0)
 NS41_Start = time.mktime(NS41_Start)
 
 'MAIN FUNCTIONS'
-def getAllMP():
+def getAllMP(serialize=True):
     'Списък на всички Народни представители от 41то НС'
 
     # Members of Parliament 
@@ -49,8 +49,13 @@ def getAllMP():
         MP[FullName] = {}
         MP[FullName]['ID'] = ID
         MP[FullName]['PoliticalForce'] = simplePoliticalForce(PoliticalForce)
+        MP[FullName]['Bills'], MP[FullName]['Questions'] = getMP(ID)  
         
         ID2MP[ID] = FullName
+    
+    if serialize:
+        serializeData(MP, DataFile['MP'])
+        serializeData(ID2MP, DataFile['ID2MP'])
     
     return MP, ID2MP
 
@@ -90,7 +95,7 @@ def getMP(key):
 
     'Информация за внесените законопроекти'
     bills = xmldoc.getElementsByTagName('Bill')
-    MP[FullName]['Bills'] = []                
+    Bills = []                
     for bill in bills:
         'Няма ID на законопроекта - ще ни трябва Signature2ID mapping'            
         '''try: BillID = bill.attributes['id'].value
@@ -120,11 +125,11 @@ def getMP(key):
             pass
         '''
         
-        MP[FullName]['Bills'].append(Signature)          
+        Bills.append(Signature)          
     
     'Информация за актуалните въпроси и питания'
     questions = xmldoc.getElementsByTagName('Question')
-    MP[FullName]['Questions'] = []
+    Questions = []
     for question in questions:
         try: About = question.getElementsByTagName('About')[0].firstChild.data
         except:
@@ -144,9 +149,9 @@ def getMP(key):
             Date = 'Problem with Question Date'
             pass
          
-        MP[FullName]['Questions'].append( (Date, To, About) )                       
+        Questions.append( (Date, To, About) )                       
     
-    return MP[FullName]        
+    return Bills, Questions        
 
 def getPG(*Party):
     'Данни за парламентарните групи'
@@ -213,8 +218,9 @@ def getAllBills(Serialize=True):
             Bills[Signature]['BillDate'] = BillDate            
             Bills[Signature]['BillID'] = BillID
             Bills[Signature]['BillName'] = BillName
-            Bills[Signature]['Type'] = classifyBill(Signature, BillName)      
-                   
+            Bills[Signature]['Type'] = classifyBill(Signature, BillName)     
+                 
+            Bills[Signature]['Status'],Bills[Signature]['Importers'] = getBill(BillID) 
             BillID2Signature[BillID] = Signature            
 
     if Serialize:
@@ -252,42 +258,49 @@ def getBill(key):
     if type(key) is int:
         BillID = key
         Signature = BillID2Signature[key]
-        print Bills[Signature]['BillName']
+        #print Bills[Signature]['BillName']
     elif  type(key) is str:
         Signature = key
         BillID = Bills[Signature]['BillID']
-        print Bills[Signature]['BillName']  
-    
+        #print Bills[Signature]['BillName']  
+        
     url = 'http://parliament.yurukov.net/data/bills/bill_'+str(BillID)+'.xml'
     getData(url, BILLS_DATA_DIR, 0)
     
     xmldoc = minidom.parse(BILLS_DATA_DIR+'bill_'+str(BillID)+'.xml')
     
-    # Приет/обнародван ли е?
+    # Къде е законопроекта? Приет/обнародван ли е?
     BillStatus = ''
-    SGIss = xmldoc.getElementsByTagName('SGIss')[0].firstChild.data
-    if SGIss != '0':
+    SGIss = xmldoc.getElementsByTagName('SGIss')[0].firstChild
+
+    try:
+        SGIss   
+        SGIss = SGIss.data
         SGYear = xmldoc.getElementsByTagName('SGYear')[0].firstChild.data
         LawName = xmldoc.getElementsByTagName('LawName')[0].firstChild.data        
         print 'Приет и обнародван в ДВ бр.',SGIss,'от',SGYear
         print 'Част от',LawName
         BillStatus = 'Обнародван в ДВ бр.'+SGIss+' от '+SGYear+'г.'    
-    else:                
-        statuses = xmldoc.getElementsByTagName('Status')
-        print statuses[-1].firstChild.data            
-        BillStatus = statuses[-1].firstChild.data
-    Bills[Signature]['Status'] = BillStatus
+    except:                
+        try:# В зала
+            statuses = xmldoc.getElementsByTagName('Status')                        
+            BillStatus = statuses[-1].firstChild.data
+        except: 
+            try:# В комисия 
+                commitees = xmldoc.getElementsByTagName('Commitee')[0].firstChild.data
+                BillStatus = 'Комисия'
+            except: 
+                BillStatus = 'Внесен'
+    
             
     # Вносители    
     Importers = []
     mps = xmldoc.getElementsByTagName('Importer')
     for mp in mps:
         Importers.append(mp.firstChild.data)
-        print mp.firstChild.data
+        #print mp.firstChild.data 
     
-    Bills[Signature]['Importers'] = Importers
-          
-    return Bill
+    return BillStatus, Importers
    
 'HELPER FUNCTIONS'
 def getData(url, data_dir=DATA_DIR, verbose=False):    
