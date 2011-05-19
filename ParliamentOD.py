@@ -250,15 +250,13 @@ def getBill(key):
     
     'Трябва да може да работим с (int)ID  или със (str)Сигнатура'
     if type(key) is int:
-        print 'Work with id'
         BillID = key
         Signature = BillID2Signature[key]
         print Bills[Signature]['BillName']
     elif  type(key) is str:
-        print 'Work with sign'
         Signature = key
         BillID = Bills[Signature]['BillID']
-        print Bills[Signature]['BillName']
+        print Bills[Signature]['BillName']  
     
     url = 'http://parliament.yurukov.net/data/bills/bill_'+str(BillID)+'.xml'
     getData(url, BILLS_DATA_DIR, 0)
@@ -266,17 +264,30 @@ def getBill(key):
     xmldoc = minidom.parse(BILLS_DATA_DIR+'bill_'+str(BillID)+'.xml')
     
     # Приет/обнародван ли е?
+    BillStatus = ''
     SGIss = xmldoc.getElementsByTagName('SGIss')[0].firstChild.data
-    if SGIss:
+    if SGIss != '0':
         SGYear = xmldoc.getElementsByTagName('SGYear')[0].firstChild.data
+        LawName = xmldoc.getElementsByTagName('LawName')[0].firstChild.data        
         print 'Приет и обнародван в ДВ бр.',SGIss,'от',SGYear
+        print 'Част от',LawName
+        BillStatus = 'Обнародван в ДВ бр.'+SGIss+' от '+SGYear+'г.'    
+    else:                
+        statuses = xmldoc.getElementsByTagName('Status')
+        print statuses[-1].firstChild.data            
+        BillStatus = statuses[-1].firstChild.data
+    Bills[Signature]['Status'] = BillStatus
+            
+    # Вносители    
+    Importers = []
+    mps = xmldoc.getElementsByTagName('Importer')
+    for mp in mps:
+        Importers.append(mp.firstChild.data)
+        print mp.firstChild.data
     
-    
-    
-
-
+    Bills[Signature]['Importers'] = Importers
           
-    pass
+    return Bill
    
 'HELPER FUNCTIONS'
 def getData(url, data_dir=DATA_DIR, verbose=False):    
@@ -425,7 +436,3 @@ def test_getPG():
         for mp in pg[party]:
             print party,'-',mp
 
-#(Bills, BillID2Signature) = getAllBills(3)
-#(Bills, BillID2Signature) = deserializeData('Bills','BillID2Signature')
-
-getBill(9996)
