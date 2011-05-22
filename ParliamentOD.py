@@ -8,6 +8,8 @@ MP_DATA_DIR = DATA_DIR+'/mp/'
 BILLS_DATA_DIR = DATA_DIR+'/bills/'
 SERIALIZE_DIR = '../serialized/'
 
+print 'Да не се ползва SQL бе тъпо, грозо и малоумно!\n Обърнете внимание на друг клон(branch), ако този е още master'
+
 # Да стане на хеш
 MP_DataStruc_file = SERIALIZE_DIR+'MP_FullName-ID-PoliticalForce.pkl'
 ID2MP_DataStruct_file = SERIALIZE_DIR+'ID2MP_ID-FullName.pkl'
