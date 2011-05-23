@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from xml.dom import minidom
+from hashlib import sha1
 import re, pickle, os, urllib, time, glob, MySQLdb
 
 DATA_DIR = '../data/'
@@ -13,7 +14,7 @@ NS41_Start = ( 2009, 6, 25, 0, 0, 0, 0, 0, 0)
 NS41_Start = time.mktime(NS41_Start)
 
 'MAIN FUNCTIONS'
-def getAllMP(serialize=True):
+def getAllMP():
     'Списък на всички Народни представители от 41то НС'  
     
     # Parse xml data
@@ -22,8 +23,7 @@ def getAllMP(serialize=True):
     
     # Start MySQL
     conn = MySQLdb.connect('localhost', 'peio', 'opendata', 'Parliament', charset='utf8');
-    cursor = conn.cursor()
-    
+    cursor = conn.cursor()    
     cursor.execute('TRUNCATE table MP');
             
     for profile in profiles:        
@@ -34,19 +34,19 @@ def getAllMP(serialize=True):
         
         
         PlaceOfBirth = profile.getElementsByTagName('PlaceOfBirth')[0].firstChild.data
-        MIR = MPConstituency ( profile.getElementsByTagName('Constituency')[0].firstChild.data )[0]
+        MIR, Region = MPConstituency ( profile.getElementsByTagName('Constituency')[0].firstChild.data )
         DataUrl = profile.getElementsByTagName('DataUrl')[0].firstChild.data      
                 
-        cursor.execute("INSERT INTO MP (ID, FullName, PoliticalForce, BirthDate, PlaceOfBirth, MIR, DataUrl ) values(%s,%s,%s,STR_TO_DATE(%s,'%%d/%%m/%%Y'),%s,%s,%s)",(ID, FullName, PoliticalForce, BirthDate, PlaceOfBirth, MIR, DataUrl))
+        cursor.execute("""INSERT INTO MP (ID, FullName, PoliticalForce, BirthDate, PlaceOfBirth, MIR, Region, DataUrl ) 
+        values(%s,%s,%s,STR_TO_DATE(%s,'%%d/%%m/%%Y'),%s,%s,%s,%s)""",(ID, FullName, PoliticalForce, BirthDate, PlaceOfBirth, MIR, Region, DataUrl))
         
         getMP(ID) 
-        
-        
+
     # Close MySQL
     cursor.close()
-    conn.close()    
-    
-    return 
+    conn.close()       
+      
+    return True 
 
 def getMP(ID):
     'Допълваме информацията за народен представител'  
@@ -71,10 +71,12 @@ def getMP(ID):
             print 'Bill Signature Problem'
             Signature = '000-00-000'
             pass
-         
+        
+
+        #print 'Внася',ID, Signature
         try: cursor.execute('INSERT INTO MP2Signature (MPID, Signature) VALUES(%s, %s)',(ID,Signature))
         except: 
-            print ID, Signature,'exists'
+            #print ID, Signature,'exists'
             pass
                     
         Bills.append(Signature)          
@@ -100,49 +102,31 @@ def getMP(ID):
             print 'Problem with Question Date'
             Date = 'Problem with Question Date'
             pass
-         
-        try: cursor.execute("INSERT INTO Questions (MPID, To, Date, About ) VALUES(%s, %s,STR_TO_DATE(%s,'%%d/%%m/%%Y'), %s)",(ID, To, Date, About))
-        except: 
-            print ID, To, Date,'exists'
+        
+        #About = 'momo'
+        QuestionSHA1 = sha1(str(ID)+To+Date+About).hexdigest()
+        try: cursor.execute("INSERT INTO Questions (MPID, ToWhom, Date, About, QuestionSHA1 ) VALUES(%s, %s,STR_TO_DATE(%s,'%%d/%%m/%%Y'), %s, %s)",(int(ID), To, Date, About, QuestionSHA1))
+        except:                     
             pass
         
         Questions.append( (Date, To, About) )                       
     
+    # Close MySQL
+    cursor.close()
+    conn.close() 
+    
     return Bills, Questions        
 
-def getPG(*Party):
-    'Данни за парламентарните групи'
+def getAllBills():
+    'Списък на законопроектите на 41 НС'   
    
-    'Разчитаме на вече създадена структура за всички депутати'
-    try: MP
-    except: 
-        try: (MP, ID2MP) = deserializeData('MP', 'ID2MP')       
-        except:
-            (MP, ID2MP) = getAllMP()
-            serializeData(MP, MP_DataStruc_file)
-            serializeData(ID2MP, ID2MP_DataStruct_file)     
-    
-    PG = {}
-    for name in MP.keys():
-        PoliticalForce = MP[name]['PoliticalForce']
-        if (PoliticalForce in Party) or (not Party):
-            try: PG[PoliticalForce].append(MP[name]['ID'])
-            except:
-                PG[PoliticalForce] = []
-                PG[PoliticalForce].append(MP[name]['ID'])
-        else:
-            continue
-    
-    return PG
-
-def getAllBills(Serialize=True):
-    'Списък на законопроектите на 41 НС'
-    
-    Bills = {}
-    BillID2Signature = {}
-    
     xmldoc = minidom.parse(DATA_DIR+'bills_list_all.xml')
     bills = xmldoc.getElementsByTagName('Bill')
+    
+    # Start MySQL
+    conn = MySQLdb.connect('localhost', 'peio', 'opendata', 'Parliament', charset='utf8');
+    cursor = conn.cursor()
+    cursor.execute('TRUNCATE table Bills');
 
     for bill in bills:
         try: BillID = int(bill.attributes['id'].value)
@@ -159,7 +143,7 @@ def getAllBills(Serialize=True):
         try: BillName  =  bill.getElementsByTagName('BillName')[0].firstChild.data
         except: 
             print 'BillName Problem with bill id',BillID
-            BillName = 'Bill for ID:',BillID
+            BillName = 'Bill for ID:'+str(BillID)
             pass 
         
         try: Date = bill.getElementsByTagName('Date')[0].firstChild.data 
@@ -171,55 +155,29 @@ def getAllBills(Serialize=True):
         BillDate = time.mktime( (int(year), int(month), int(day),0,0,0,0,0,0) )
                           
         if ( BillDate - NS41_Start)  >= 0:                        
-            Bills[Signature] = {}
-            Bills[Signature]['BillDate'] = BillDate            
-            Bills[Signature]['BillID'] = BillID
-            Bills[Signature]['BillName'] = BillName
-            Bills[Signature]['Type'] = classifyBill(Signature, BillName)     
-                 
-            Bills[Signature]['Status'],Bills[Signature]['Importers'] = getBill(BillID) 
-            BillID2Signature[BillID] = Signature            
+            Type = classifyBill(Signature, BillName)
+            Status =  getBill(BillID)          
+                                      
+            try: cursor.execute("""INSERT  INTO Parliament.Bills (ID, Signature, Date, Type, BillName, Status ) 
+                VALUES(%s,%s,STR_TO_DATE(%s,'%%d/%%m/%%Y'),%s,%s,%s)""",(BillID, Signature, Date, Type, BillName, Status))
+            except:
+                print 'Problems with:',BillID, Signature
+                pass
+                       
+       
+    # Close MySQL
+    cursor.close()
+    conn.close()
+     
+    
+    return True         
 
-    if Serialize:
-        serializeData(Bills, DataFile['Bills'])
-        serializeData(BillID2Signature, DataFile['BillID2Signature'])        
-    
-    return Bills, BillID2Signature         
 
-def classifyBill(Signature, BillName):
-    'Класифициране на Законопроекти, Решения, Закони за ратификация'
-    
-    Type = ''
-    if '-' in Signature:            
-        Type =  'Законопроект'
-        if 'ратифициране' in BillName:
-            Type = 'Ратификация'
-            #print BillName
-    else:
-        Type = 'Решение'
-        if 'ДЕКЛАРАЦИЯ' in BillName:                
-            Type = 'Декларация'        
-            #print BillName  
-    
-    return Type
 
 def getBill(key):
     'Информация за законопроект'
     
-    #Тези данни пак ни трябват. Може би е добре да си ги има и иначе 
-    try: Bills    
-    except:        
-        (Bills,BillID2Signature) = deserializeData('Bills', 'BillID2Signature' )
-    
-    'Трябва да може да работим с (int)ID  или със (str)Сигнатура'
-    if type(key) is int:
-        BillID = key
-        Signature = BillID2Signature[key]
-        #print Bills[Signature]['BillName']
-    elif  type(key) is str:
-        Signature = key
-        BillID = Bills[Signature]['BillID']
-        #print Bills[Signature]['BillName']  
+    BillID = int(key)
         
     url = 'http://parliament.yurukov.net/data/bills/bill_'+str(BillID)+'.xml'
     getData(url, BILLS_DATA_DIR, 0)
@@ -235,8 +193,8 @@ def getBill(key):
         SGIss = SGIss.data
         SGYear = xmldoc.getElementsByTagName('SGYear')[0].firstChild.data
         LawName = xmldoc.getElementsByTagName('LawName')[0].firstChild.data        
-        print 'Приет и обнародван в ДВ бр.',SGIss,'от',SGYear
-        print 'Част от',LawName
+        #print 'Приет и обнародван в ДВ бр.',SGIss,'от',SGYear
+        #print 'Част от',LawName
         BillStatus = 'Обнародван в ДВ бр.'+SGIss+' от '+SGYear+'г.'    
     except:                
         try:# В зала
@@ -248,16 +206,16 @@ def getBill(key):
                 BillStatus = 'Комисия'
             except: 
                 BillStatus = 'Внесен'
-    
-            
+                
     # Вносители    
+    '''
     Importers = []
     mps = xmldoc.getElementsByTagName('Importer')
     for mp in mps:
         Importers.append(mp.firstChild.data)
         #print mp.firstChild.data 
-    
-    return BillStatus, Importers
+    '''
+    return BillStatus
    
 'HELPER FUNCTIONS'
 def getData(url, data_dir=DATA_DIR, verbose=False):    
@@ -353,96 +311,27 @@ def autoCorrectFullName(FullName, MP, ID2MP ):
             print 'Къв си ти, бе', FullName
             return False   
 
-def MPConstituency(Constituency):
-    
-    # Start MySQL
-    conn = MySQLdb.connect('localhost', 'peio', 'opendata', 'Parliament', charset='utf8');
-    cursor = conn.cursor()    
-    #cursor.execute('TRUNCATE table Constituency');    
-    
+def MPConstituency(Constituency):   
     MIR, Region = Constituency.split('-')    
-    try: cursor.execute("INSERT INTO Constituency (MIR, Region) values(%s, %s)",(int(MIR), Region))
-    except:
-        #print int(MIR), Region,'exist'        
-        pass    
-    
-    # Close MySQL
-    cursor.close()
-    conn.close() 
     return int(MIR), Region
 
-'TESTING FUNCTIONS'
-def test_getAllMP(limit=10):
-    'Проверка на съдържанието на структурата за Народните представители'
-    '''Input: (int) limit - брой записи
-       Returns: Структура от данни с  
-    '''
-    (mps,id2mp) = getAllMP()
-    print 'size:',len(mps)
-   
-    i = 0
-    for name in mps.keys():
-        if i < limit:
-            print name, mps[name]['ID'], mps[name]['PoliticalForce']
-            #print mps[name]
-        else: 
-            break
-        i += 1
+def classifyBill(Signature, BillName):
+    'Класифициране на Законопроекти, Решения, Закони за ратификация'
+    
+    Type = ''
+    if '-' in Signature:            
+        Type =  'Законопроект'
+        if 'ратифициране' in BillName:
+            Type = 'Ратификация'
+            #print BillName
+    else:
+        Type = 'Решение'
+        if 'ДЕКЛАРАЦИЯ' in BillName:                
+            Type = 'Декларация'        
+            #print BillName  
+    
+    return Type
 
-def test_getMP(key=1005): # Get Костов u'ИВАН ЙОРДАНОВ КОСТОВ'      
-    mp = getMP(key)
-    
-    print 'Законопроекти:'
-    for signature in mp['Bills']:
-        print signature, 
-    
-    print 'Питания:'
-    for (date, to, question) in mp['Questions']:
-        print date, to, question
-    return True         
-
-def test_getAllBills(limit=10):
-    'Проверка на съдържанието на структурата на законопроектите'
-    
-    bills = getAllBills()
-    print 'size', len(bills)
-    
-    i = 0
-    for signature in bills.keys():
-                
-        if i < limit:
-            print signature, bills[signature]['BillID'], bills[signature]['BillName'], bills[signature]['BillDate']
-            print bills[signature]
-        else:             
-            break
-        i += 1
-
-def test_getPG():
-    pg = getPG('РЗС', 'СК') 
-    print len (pg)
-    for party in pg.keys():
-        for mp in pg[party]:
-            print party,'-',mp
-
-getAllMP(1)
-
-'''
-xmldoc = minidom.parse(DATA_DIR+'mp_list.xml')
-profiles = xmldoc.getElementsByTagName('Profile')       
-
-       
-for profile in profiles:        
-    ID = int(profile.attributes['id'].value)
-    FullName = profile.getElementsByTagName('FullName')[0].firstChild.data
-    PoliticalForce = simplePoliticalForce( profile.getElementsByTagName('PoliticalForce')[0].firstChild.data )
-    BirthDate = simplePoliticalForce( profile.getElementsByTagName('DateOfBirth')[0].firstChild.data )
-    
-    
-    PlaceOfBirth = profile.getElementsByTagName('PlaceOfBirth')[0].firstChild.data
-    Constituency = MPConstituency ( profile.getElementsByTagName('Constituency')[0].firstChild.data )
-    DataUrl = profile.getElementsByTagName('DataUrl')[0].firstChild.data
-    
-    
-    if 'България' not in PlaceOfBirth:
-        print ID, FullName, PlaceOfBirth, Constituency #, DataUrl
-'''
+if __name__ == '__main__':
+    getAllMP()
+    getAllBills()
