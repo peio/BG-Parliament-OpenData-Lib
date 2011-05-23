@@ -7,7 +7,6 @@ import re, pickle, os, urllib, time, glob, MySQLdb
 DATA_DIR = '../data/'
 MP_DATA_DIR = DATA_DIR+'/mp/'
 BILLS_DATA_DIR = DATA_DIR+'/bills/'
-SERIALIZE_DIR = '../serialized/'
 
 # Начало на 41 НС
 NS41_Start = ( 2009, 6, 25, 0, 0, 0, 0, 0, 0)
@@ -15,6 +14,11 @@ NS41_Start = time.mktime(NS41_Start)
 
 'MAIN FUNCTIONS'
 def getAllMP():
+    'Информация за Народните представители от 41 НС'
+    
+    url = 'http://parliament.yurukov.net/data/mp_list.xml'
+    getData(url)
+    
     'Списък на всички Народни представители от 41то НС'  
     
     # Parse xml data
@@ -49,7 +53,7 @@ def getAllMP():
     return True 
 
 def getMP(ID):
-    'Допълваме информацията за народен представител'  
+    'Индивидуална (допълнителна) информация за народен представител'  
          
     # По ID може да извлечем пълната индивидуална информация      
     url = 'http://parliament.yurukov.net/data/mp/mp_'+str(ID)+'.xml'
@@ -118,8 +122,11 @@ def getMP(ID):
     return Bills, Questions        
 
 def getAllBills():
-    'Списък на законопроектите на 41 НС'   
-   
+    'Списък на законопроектите на 41 НС'
+    
+    url = 'http://parliament.yurukov.net/data/bills_list_all.xml'
+    getData(url)
+      
     xmldoc = minidom.parse(DATA_DIR+'bills_list_all.xml')
     bills = xmldoc.getElementsByTagName('Bill')
     
@@ -163,8 +170,8 @@ def getAllBills():
             except:
                 print 'Problems with:',BillID, Signature
                 pass
-                       
-       
+                   
+    
     # Close MySQL
     cursor.close()
     conn.close()
@@ -172,10 +179,8 @@ def getAllBills():
     
     return True         
 
-
-
 def getBill(key):
-    'Информация за законопроект'
+    'Индивидуална (допълнителна) информация за законопроект'
     
     BillID = int(key)
         
@@ -226,7 +231,7 @@ def getData(url, data_dir=DATA_DIR, verbose=False):
 
     '@todo: Implement conditional get'    
     if os.path.exists(dl_path):
-        if verbose: print 'file there'
+        if verbose: print 'file there',dl_path 
     else:
         if verbose: print 'get',url
         try: 
@@ -236,40 +241,6 @@ def getData(url, data_dir=DATA_DIR, verbose=False):
             print 'cannot download', url
             return False
     return True  
-
-def serializeData(DataStruct, file):
-    'Сериализация на структурa от данни'
-      
-    output = open(SERIALIZE_DIR+file, 'wb')
-    pickle.dump(DataStruct, output)
-    output.close()    
-    return True
-
-def deserializeData( *deserializeVars ):
-    'Десериализация на структурa от данни'
-    
-    '@todo: по-малко ужасни имена на променливи'
-    serialized_files =  glob.glob(SERIALIZE_DIR+'*pkl')
-    serialized_vars = {}
-    
-    for file in serialized_files:
-        varname = file.replace(SERIALIZE_DIR, '')
-        varname = varname.split('_')[0]
-        serialized_vars[varname] = file                
-    
-    deserialized_vars = []
-    for deserialize_var in deserializeVars:
-        try: 
-            serialized_vars[deserialize_var]
-            pkl_file = open(serialized_vars[deserialize_var], 'rb')
-            deserialize_var = pickle.load(pkl_file)
-            pkl_file.close()
-            deserialized_vars.append(deserialize_var)
-        except:
-            #print deserialize_var, 'variable is not found'
-            return False
-            
-    return deserialized_vars 
 
 def simplePoliticalForce(PoliticalForce):
     '''По-ясни и кратки имена на политическите сили
@@ -283,33 +254,6 @@ def simplePoliticalForce(PoliticalForce):
     PoliticalForce = PoliticalForce.replace('Ред, законност и справедливост', 'РЗС')
     
     return PoliticalForce    
-
-def autoCorrectFullName(FullName, MP, ID2MP ):    
-    'Опит за автоматична поправка на несъвпадащи три имена'   
-    try: MP
-    except: print 'autoCorrect Needs MP and ID2MP structures'
-       
-    # Test errors with  FullName = u'ИВАН ЙОРДАНОВ КОСТОф' # can be autocorrected
-    # Test errors with  FullName = u'ДИЕГО АРМАНДО МАРАДОНА' # can not be autocorrected
-    try: 
-        MP[FullName]
-        return FullName
-    except KeyError: # Тоя го няма       
-        import difflib
-        
-        # Опитваме автоматична корекция
-        mp_dictionary = []
-        for mp_name in ID2MP.values():
-            mp_dictionary.append(mp_name) 
-        
-        try: 
-            FullName = difflib.get_close_matches(FullName, mp_dictionary, 1)[0]
-            print 'FullName autocorrected to', FullName
-            del(mp_dictionary)
-            return FullName            
-        except:
-            print 'Къв си ти, бе', FullName
-            return False   
 
 def MPConstituency(Constituency):   
     MIR, Region = Constituency.split('-')    
