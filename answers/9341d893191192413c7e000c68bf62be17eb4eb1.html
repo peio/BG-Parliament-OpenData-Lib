@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
-    <title>Коя партия колко актуални въпроси и питания е задала?  
+    <title>На коя партия колко законопроекта са приети?  
     </title>
     <script type="text/javascript" src="http://www.google.com/jsapi"></script>
     <script type="text/javascript">
@@ -13,20 +13,16 @@
     function drawVisualization() {
       // Create and populate the data table.
       var data = new google.visualization.DataTable(); data.addColumn('string', 'Партия');
-data.addColumn('number', 'Брой питания');
-data.addRows(6);
-data.setCell(0, 0, "КБ");
-data.setCell(0, 1, 797);
+data.addColumn('number', 'Брой приети законопроекти');
+data.addRows(4);
+data.setCell(0, 0, "ГЕРБ");
+data.setCell(0, 1, 208);
 data.setCell(1, 0, "СК");
-data.setCell(1, 1, 236);
+data.setCell(1, 1, 9);
 data.setCell(2, 0, "Атака");
-data.setCell(2, 1, 154);
-data.setCell(3, 0, "ГЕРБ");
-data.setCell(3, 1, 122);
-data.setCell(4, 0, "РЗС");
-data.setCell(4, 1, 112);
-data.setCell(5, 0, "ДПС");
-data.setCell(5, 1, 106);
+data.setCell(2, 1, 5);
+data.setCell(3, 0, "ДПС");
+data.setCell(3, 1, 1);
 
           // Create and draw the visualization.
       visualization = new google.visualization.Table(document.getElementById('table'));
@@ -39,7 +35,7 @@ data.setCell(5, 1, 106);
   </head>
   
   <body style="font-family: Arial;border: 0 none;">
-    <h3>Коя партия колко актуални въпроси и питания е задала?</h3>
+    <h3>На коя партия колко законопроекта са приети?</h3>
     <div style="width: 600px;" id="table"></div>
   </body>
   </html>
