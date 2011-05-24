@@ -1,0 +1,42 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+    <title>Кои депутати са задали най-много актуални въпроси и питания?  
+    </title>
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load('visualization', '1', {packages: ['table']});
+    </script>
+    <script type="text/javascript">
+    function drawVisualization() {
+      // Create and populate the data table.
+      var data = new google.visualization.DataTable(); data.addColumn('string', 'Име');
+data.addColumn('string', 'Партия');
+data.addColumn('number', 'Брой питания');
+data.addRows(3);
+data.setCell(0, 0, "ИВАН НИКОЛАЕВ ИВАНОВ");
+data.setCell(0, 1, "СК");
+data.setCell(0, 2, 90);
+data.setCell(1, 0, "МАЯ БОЖИДАРОВА МАНОЛОВА");
+data.setCell(1, 1, "КБ");
+data.setCell(1, 2, 67);
+data.setCell(2, 0, "АНТОН КОНСТАНТИНОВ КУТЕВ");
+data.setCell(2, 1, "КБ");
+data.setCell(2, 2, 51);
+
+          // Create and draw the visualization.
+      visualization = new google.visualization.Table(document.getElementById('table'));
+      visualization.draw(data, null);
+    }
+     
+     
+    google.setOnLoadCallback(drawVisualization);
+    </script>
+  </head>
+  <body style="font-family: Arial;border: 0 none;">
+    <div id="table"></div>
+  </body>
+  </html>
+    
