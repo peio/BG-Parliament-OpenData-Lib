@@ -20,10 +20,11 @@ CREATE  TABLE IF NOT EXISTS `Parliament`.`MP` (
   `PlaceOfBirth` VARCHAR(64) NULL DEFAULT NULL ,
   `DataUrl` VARCHAR(128) NULL DEFAULT NULL ,
   `Region` VARCHAR(20) NULL ,
+  `Profession` VARCHAR(60) NULL ,
   PRIMARY KEY (`ID`) ,
   UNIQUE INDEX `FullName_UNIQUE` (`FullName` ASC) )
 ENGINE = MyISAM
-DEFAULT CHARACTER SET = utf8
+DEFAULT CHARACTER SET = utf8, 
 COMMENT = 'Members of 41 Bulgarian Parliament' ;
 
 
@@ -76,6 +77,17 @@ CREATE  TABLE IF NOT EXISTS `Parliament`.`Bills` (
   PRIMARY KEY (`ID`) ,
   INDEX `Signarure` (`Signature` ASC) ,
   UNIQUE INDEX `ID_UNIQUE` (`ID` ASC) )
+ENGINE = MyISAM;
+
+
+-- -----------------------------------------------------
+-- Table `Parliament`.`Languages`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `Parliament`.`Languages` ;
+
+CREATE  TABLE IF NOT EXISTS `Parliament`.`Languages` (
+  `MPID` INT NULL ,
+  `Language` VARCHAR(45) NULL )
 ENGINE = MyISAM;
 
 

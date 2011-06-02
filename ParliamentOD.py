@@ -131,6 +131,30 @@ def getMP(ID):
         
         Questions.append( (Date, To, About) )                       
     
+    'Информация за професията'
+    Profession = xmldoc.getElementsByTagName('Profession')[1].firstChild.data
+    #print ID, Profession
+    cursor.execute('UPDATE MP SET Profession=%s WHERE ID=%s',(Profession, int(ID)))
+
+    'Информация за образователната степен'
+    try: 
+        ScienceDegree = xmldoc.getElementsByTagName('ScienceDegree')[1].firstChild.data
+        #print ID, ScienceDegree
+    except:
+        pass
+    
+    'Владеене на език'
+    languages = xmldoc.getElementsByTagName('Language')
+    for language in languages:
+        try:
+            language.firstChild.data
+            if language.firstChild.data.strip() != '':
+                #print  ID, language.firstChild.data
+                cursor.execute("INSERT INTO Languages (MPID, Language) VALUES(%s, %s)", (int(ID), language.firstChild.data))
+        except:
+            pass        
+        
+    
     # Close MySQL
     cursor.close()
     conn.close() 

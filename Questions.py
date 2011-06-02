@@ -79,6 +79,90 @@ Question['Query'] = "select PlaceOfBirth, count(*) as Num from `Parliament`.`MP`
 Question['Headers'] = ['Родно място', 'Брой']
 Questions.append(Question)
 
+# Образование
+Question = {}
+Question['Human'] = 'Кои депутати имат научна степен?'
+Question['Query'] = 'SELECT FullName, PoliticalForce from `Parliament`.`MP`WHERE ID=1005 or ID=922'
+Question['Headers'] = ['Име', 'Партия']
+Questions.append(Question)
+
+Question = {}
+Question['Human'] = 'Кои са най-популярните чужди езици?'
+Question['Query'] = "SELECT Language, count(*) as Num FROM `Parliament`.`Languages` group by Language order by Num desc;" 
+Question['Headers'] = ['Език', 'Брой']
+Questions.append(Question)
+
+for Party in ('ГЕРБ', 'КБ', 'ДПС', 'Атака', 'СК', 'РЗС' ):
+    Question = {}
+    Question['Human'] = 'Кои са най-популярните чужди езици в парламентарната група на '+Party+'?' 
+    Question['Query'] = "SELECT Language, count(*) as Num  FROM `Parliament`.`Languages`, `Parliament`.`MP`  WHERE Languages.MPID=MP.ID and PoliticalForce='"+Party+"' group by Language order by Num desc;" 
+    Question['Headers'] = ['Език', 'Брой']
+    Questions.append(Question)
+
+Question = {}
+Question['Human'] = "Кои депутати знаят най-малко популярните езици?" 
+Question['Query'] = "SELECT FullName, PoliticalForce, Language FROM `Parliament`.`MP` as MP   JOIN (SELECT MPID, Language, count(*) as N FROM `Parliament`.`Languages` group by Language having N=1) L ON L.MPID=MP.ID;" 
+Question['Headers'] = ['Име','Партия', 'Език']
+Questions.append(Question)
+
+Question = {}
+Question['Human'] = "Кои депутати знаят най-много чужди езици?" 
+Question['Query'] = "select FullName, PoliticalForce, count(*) as N from `Parliament`.`Languages`, `Parliament`.`MP` where `Parliament`.`Languages`.MPID=MP.ID group by FullName order by N desc;" 
+Question['Headers'] = ['Име','Партия', 'Брой']
+Questions.append(Question)
+
+
+Question = {}
+Question['Human'] = 'Кои депутати не знаят чужди езици?' 
+Question['Query'] = "select FullName, PoliticalForce  from `Parliament`.`MP` where ID not in (select distinct MPID from `Parliament`.`Languages`);" 
+Question['Headers'] = ['Име','Партия']
+Questions.append(Question)
+
+Question = {}
+Question['Human'] = 'Кои депутати не знаят руски?'
+Question['Query'] = "SELECT FullName, PoliticalForce  from `Parliament`.`MP` where ID not in (select distinct MPID from `Parliament`.`Languages` where Language='руски')" 
+Question['Headers'] = ['Име','Партия']
+Questions.append(Question)
+
+Question = {}
+Question['Human'] = "Кои депутати не знаят английски?" 
+Question['Query'] = "SELECT FullName, PoliticalForce  from `Parliament`.`MP` where ID not in (select distinct MPID from `Parliament`.`Languages` where Language='английски')"  
+Question['Headers'] = ['Име','Партия']
+Questions.append(Question)
+
+Question = {}
+Question['Human'] = "Кои депутати знаят турски?" 
+Question['Query'] = "SELECT FullName, PoliticalForce from `Parliament`.`MP` where ID in (select distinct MPID from `Parliament`.`Languages` where Language='турски')" 
+Question['Headers'] = ['Име', 'Партия']
+Questions.append(Question)
+
+Question = {}
+Question['Human'] = "Кои от БСП не знаят руски?" 
+Question['Query'] = "SELECT FullName from `Parliament`.`MP` where PoliticalForce='КБ' and ID not in (select distinct MPID from `Parliament`.`Languages` where Language='руски')" 
+Question['Headers'] = ['Име']
+Questions.append(Question)
+
+
+# Професия
+Question = {}
+Question['Human'] = 'Кои са най-популярните професии?'
+Question['Query'] = "SELECT Profession, count(*) as num FROM `Parliament`.`MP` group by Profession order by num desc;" 
+Question['Headers'] = ['Професия', 'Брой']
+Questions.append(Question)
+
+for Party in ('ГЕРБ', 'КБ', 'ДПС', 'Атака', 'СК', 'РЗС' ):    
+    Question = {}
+    Question['Human'] = "Какви специалности имат представителите на "+Party+'?' 
+    Question['Query'] = "SELECT Profession, count(*) as num FROM `Parliament`.`MP` WHERE PoliticalForce='"+Party+"' group by Profession order by num desc ;" 
+    Question['Headers'] = ['Професия', 'Брой']
+    Questions.append(Question)
+
+Question = {}
+Question['Human'] = "Кои депутати имат най-малко популярните специалности?" 
+Question['Query'] = "SELECT FullName, PoliticalForce, Profession, count(*) as N FROM `Parliament`.`MP` as MP Group by Profession Having N=1" 
+Question['Headers'] = ['Име','Партия', 'Език', 'Брой']
+Questions.append(Question)
+
 
 '''
 # Question template
@@ -190,7 +274,7 @@ def getType(data):
         return Type
     elif (type(data) is int) or (type(data) is long):
         Type = 'number'
-        return Type  
+        return Type
     else:
         print type(data)
         return False
